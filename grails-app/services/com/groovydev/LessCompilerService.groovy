@@ -1,10 +1,7 @@
 package com.groovydev
 
-import org.mozilla.javascript.ContextFactory
 import org.mozilla.javascript.Context
-import org.mozilla.javascript.tools.shell.Global
 import org.mozilla.javascript.ScriptableObject
-import org.mozilla.javascript.tools.shell.Main
 
 class LessCompilerService {
 
@@ -24,10 +21,11 @@ class LessCompilerService {
             ScriptableObject scope = cx.initStandardObjects()
 
             def pathstext = paths.collect{
-                if (it.endsWith(File.separator)) {
-                    "'${it}'"
+                def p = it.replaceAll("\\\\", "/")
+                if (p.endsWith("/")) {
+                    "'${p}'"
                 } else {
-                    "'${it}${File.separator}'"
+                    "'${p}/'"
                 }
             }.toString()
 
@@ -35,12 +33,18 @@ class LessCompilerService {
             script.append(loadResource('shell.js'))
             script.append(loadResource('env.rhino.js'))
             script.append(loadResource('hooks.js'))
-            script.append(loadResource('less-1.3.0.js'))
+            script.append(loadResource('less-1.3.3.js'))
             script.append(loadResource('compile.js'))
-            script.append("compile('${source}', ${pathstext});" as String)
 
-            def result = cx.evaluateString(scope, script.toString(), "<script>", 1, null);
+            def sourceFileName = source.absolutePath.replaceAll("\\\\", "/")
+            script.append("compile('${sourceFileName}', ${pathstext});" as String)
 
+            if(log.debugEnabled) {
+                def f = File.createTempFile("lessCompilerService", ".js")
+                f.text = script.toString()
+            }
+
+            def result = cx.evaluateString(scope, script.toString(), "<script>", 1, null)
             def css = cx.toString(result)
             target.text = css
         } finally {
